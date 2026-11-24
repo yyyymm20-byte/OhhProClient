@@ -1,0 +1,44 @@
+name: Build OHH PRO CLIENT
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.14.3'
+
+      - name: Extract source ZIP
+        run: |
+          mkdir workspace
+          ZIP_FILE=$(find . -maxdepth 1 -iname '*.zip' | head -n 1)
+          unzip -q "$ZIP_FILE" -d workspace
+
+      - name: Build JAR
+        run: |
+          BUILD_FILE=$(find workspace -name build.gradle -o -name build.gradle.kts | head -n 1)
+          cd "$(dirname "$BUILD_FILE")"
+          gradle build --no-daemon
+
+      - name: Upload JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: OHH-PRO-CLIENT-JAR
+          path: workspace/**/build/libs/*.jar
+          if-no-files-found: error
