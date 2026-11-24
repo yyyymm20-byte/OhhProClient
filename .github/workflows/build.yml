@@ -25,16 +25,38 @@ jobs:
           gradle-version: '9.2.0'
 
       - name: Extract source ZIP
+        shell: bash
         run: |
-          mkdir workspace
-          ZIP_FILE=$(find . -maxdepth 1 -iname '*.zip' | head -n 1)
+          set -euo pipefail
+          mkdir -p workspace
+
+          ZIP_FILE="$(find . -maxdepth 1 -type f -iname '*.zip' -print -quit)"
+
+          if [ -z "$ZIP_FILE" ]; then
+            echo "::error::No source ZIP file found!"
+            exit 1
+          fi
+
           unzip -q "$ZIP_FILE" -d workspace
 
       - name: Build JAR
+        shell: bash
         run: |
-          BUILD_FILE=$(find workspace -name build.gradle -o -name build.gradle.kts | head -n 1)
-          cd "$(dirname "$BUILD_FILE")"
-          gradle build --no-daemon
+          set -euo pipefail
+
+          PROJECT_DIR="$(find workspace -type f \( -name settings.gradle -o -name settings.gradle.kts \) -print -quit | xargs -r dirname)"
+
+          if [ -z "$PROJECT_DIR" ]; then
+            BUILD_FILE="$(find workspace -type f \( -name build.gradle -o -name build.gradle.kts \) -print -quit)"
+            if [ -z "$BUILD_FILE" ]; then
+              echo "::error::Gradle project not found!"
+              exit 1
+            fi
+            PROJECT_DIR="$(dirname "$BUILD_FILE")"
+          fi
+
+          cd "$PROJECT_DIR"
+          gradle build --no-daemon --stacktrace
 
       - name: Upload JAR
         uses: actions/upload-artifact@v4
